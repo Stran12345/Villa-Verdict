@@ -183,8 +183,28 @@ export async function POST(req: Request) {
     );
   }
 
+  // Clean and validate the text
+  const cleanedText = text.trim();
+  if (cleanedText.length === 0) {
+    return NextResponse.json(
+      { error: "Text cannot be empty after trimming" },
+      { status: 400 }
+    );
+  }
+
+  // If text is too short, use fallback immediately
+  if (cleanedText.length < 10) {
+    console.log("Text too short, using fallback analysis");
+    const fallbackSentiment = analyzeSentimentFallback(cleanedText);
+    return NextResponse.json({
+      sentiment: fallbackSentiment,
+      method: "keyword_fallback",
+      note: "Used keyword analysis due to short text length",
+    });
+  }
+
   // Truncate text if it's too long (to avoid token limit issues)
-  const truncatedText = truncateText(text);
+  const truncatedText = truncateText(cleanedText);
   const wasTruncated = truncatedText !== text;
 
   // Use a more reliable and commonly available sentiment analysis model
@@ -193,7 +213,7 @@ export async function POST(req: Request) {
 
   console.log(`Making request to: ${inferenceApiUrl}`);
   console.log(`API Key present: ${!!process.env.HUGGING_FACE_API_KEY}`);
-  console.log(`Original text length: ${text.length} characters`);
+  console.log(`Original text length: ${cleanedText.length} characters`);
   console.log(`Truncated text length: ${truncatedText.length} characters`);
   console.log(`Was truncated: ${wasTruncated}`);
 
@@ -217,16 +237,16 @@ export async function POST(req: Request) {
       console.error("Hugging Face API Error:", errorText);
       console.error("Response status:", response.status);
 
-      // If we get a token limit error, fall back to keyword analysis
-      if (response.status === 400 && errorText.includes("tensor")) {
+      // If we get any error, fall back to keyword analysis
+      if (response.status === 400 || response.status === 500) {
         console.log(
-          "Falling back to keyword-based sentiment analysis due to token limit"
+          "Falling back to keyword-based sentiment analysis due to API error"
         );
-        const fallbackSentiment = analyzeSentimentFallback(text);
+        const fallbackSentiment = analyzeSentimentFallback(cleanedText);
         return NextResponse.json({
           sentiment: fallbackSentiment,
           method: "keyword_fallback",
-          note: "Used keyword analysis due to text length",
+          note: "Used keyword analysis due to API error",
         });
       }
 
@@ -243,10 +263,33 @@ export async function POST(req: Request) {
     const result = await response.json();
     console.log("API Response:", JSON.stringify(result, null, 2));
 
+    // Handle empty or invalid response
+    if (!result || !Array.isArray(result) || result.length === 0) {
+      console.log("Empty or invalid response, using fallback");
+      const fallbackSentiment = analyzeSentimentFallback(cleanedText);
+      return NextResponse.json({
+        sentiment: fallbackSentiment,
+        method: "keyword_fallback",
+        note: "Used keyword analysis due to invalid API response",
+      });
+    }
+
     // The result from this specific model is an array of objects
     // We need to parse this to find the label with the highest score
-    if (result && Array.isArray(result) && result[0]) {
+    if (result[0]) {
       const sentiments = result[0];
+
+      // Validate sentiments array
+      if (!Array.isArray(sentiments) || sentiments.length === 0) {
+        console.log("Invalid sentiments array, using fallback");
+        const fallbackSentiment = analyzeSentimentFallback(cleanedText);
+        return NextResponse.json({
+          sentiment: fallbackSentiment,
+          method: "keyword_fallback",
+          note: "Used keyword analysis due to invalid sentiments data",
+        });
+      }
+
       const highestScore = sentiments.reduce(
         (
           prev: { score: number; label: string },
@@ -285,15 +328,24 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json(
-      { error: "Unexpected response format from Hugging Face API" },
-      { status: 500 }
-    );
+    // If we reach here, use fallback
+    console.log("Unexpected response format, using fallback");
+    const fallbackSentiment = analyzeSentimentFallback(cleanedText);
+    return NextResponse.json({
+      sentiment: fallbackSentiment,
+      method: "keyword_fallback",
+      note: "Used keyword analysis due to unexpected response format",
+    });
   } catch (error: any) {
     console.error("Internal Server Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 }
-    );
+
+    // Use fallback on any error
+    console.log("Exception occurred, using fallback analysis");
+    const fallbackSentiment = analyzeSentimentFallback(cleanedText);
+    return NextResponse.json({
+      sentiment: fallbackSentiment,
+      method: "keyword_fallback",
+      note: "Used keyword analysis due to exception",
+    });
   }
 }
