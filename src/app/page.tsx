@@ -112,8 +112,10 @@ const POSTS_PER_PAGE = 5;
 
 export default function App() {
   const [contestant, setContestant] = useState<string>("");
+  const [contestant2, setContestant2] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [results, setResults] = useState<SentimentResult | null>(null);
+  const [results2, setResults2] = useState<SentimentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Time range selection for Reddit sort=top
@@ -124,94 +126,176 @@ export default function App() {
     "Negative",
   ]);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [currentPage2, setCurrentPage2] = useState<number>(1);
+  const [activeContestant, setActiveContestant] = useState<"first" | "second">(
+    "first"
+  );
+
+  // Function to reset the page state (refresh functionality)
+  const handleLogoClick = () => {
+    setResults(null);
+    setResults2(null);
+    setError(null);
+    setLoading(false);
+    setCurrentPage(1);
+    setCurrentPage2(1);
+    setSelectedSentiments(["Positive", "Neutral", "Negative"]);
+    setTimeRange("month");
+    setActiveContestant("first");
+    // Keep the current contestants selected but clear results
+  };
 
   // Function to handle the entire data fetching and processing workflow
   const fetchAndProcessData = async () => {
     setLoading(true);
     setResults(null);
+    setResults2(null);
     setError(null);
 
-    // Step 1: Fetch posts from the Reddit API
     try {
-      const params = new URLSearchParams({ contestant });
-      if (timeRange) params.set("t", timeRange);
-      const redditResponse = await fetch(`/api/reddit?${params.toString()}`);
-      if (!redditResponse.ok) {
-        throw new Error("Failed to fetch posts from Reddit.");
-      }
-      const { posts, cached, cacheAge } = await redditResponse.json();
+      // Fetch data for first contestant
+      if (contestant) {
+        const params = new URLSearchParams({ contestant });
+        if (timeRange) params.set("t", timeRange);
+        const redditResponse = await fetch(`/api/reddit?${params.toString()}`);
+        if (!redditResponse.ok) {
+          throw new Error("Failed to fetch posts from Reddit.");
+        }
+        const { posts, cached, cacheAge } = await redditResponse.json();
 
-      console.log(
-        `Reddit API returned ${posts.length} total posts${
-          cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
-        }`
-      );
+        console.log(
+          `Reddit API returned ${posts.length} total posts for ${contestant}${
+            cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
+          }`
+        );
 
-      if (!posts || posts.length === 0) {
-        setError("No posts found for the selected contestant.");
-        setLoading(false);
-        return;
-      }
+        if (!posts || posts.length === 0) {
+          setError(`No posts found for ${contestant}.`);
+          setLoading(false);
+          return;
+        }
 
-      // Server-side time-range filtering now applied; use posts as-is
-      const filteredPosts = posts;
+        // Process posts for sentiment analysis
+        const postsWithSentiment = await Promise.all(
+          posts.map(async (post: Post) => {
+            const combinedText = [post.title, post.text]
+              .filter((part) => part && part.trim().length > 0)
+              .join(". ");
 
-      if (filteredPosts.length === 0) {
-        setError("No posts found within the selected date range.");
-        setLoading(false);
-        return;
-      }
+            const sentimentResponse = await fetch("/api/sentiment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: combinedText }),
+            });
 
-      // Step 2: Process each post for sentiment analysis
-      const postsWithSentiment = await Promise.all(
-        filteredPosts.map(async (post: Post) => {
-          const combinedText = [post.title, post.text]
-            .filter((part) => part && part.trim().length > 0)
-            .join(". ");
+            if (!sentimentResponse.ok) {
+              const errorData = await sentimentResponse.json();
+              throw new Error(
+                `Sentiment API error: ${JSON.stringify(errorData)}`
+              );
+            }
 
-          const sentimentResponse = await fetch("/api/sentiment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: combinedText }),
-          });
+            const { sentiment } = await sentimentResponse.json();
+            return { ...post, sentiment };
+          })
+        );
 
-          if (!sentimentResponse.ok) {
-            // Include more detailed error message from the API
-            const errorData = await sentimentResponse.json();
-            throw new Error(
-              `Sentiment API error: ${JSON.stringify(errorData)}`
-            );
-          }
+        // Save to database
+        const saveResponse = await fetch("/api/database", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contestant,
+            season: "Season 7",
+            posts: postsWithSentiment,
+          }),
+        });
 
-          const { sentiment } = await sentimentResponse.json();
-          return { ...post, sentiment };
-        })
-      );
+        if (!saveResponse.ok) {
+          const errorData = await saveResponse.json();
+          throw new Error(`Database API error: ${JSON.stringify(errorData)}`);
+        }
 
-      // Step 3: Save the processed data to the MongoDB database
-      const saveResponse = await fetch("/api/database", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        setResults({
           contestant,
           season: "Season 7",
+          date: new Date().toISOString(),
           posts: postsWithSentiment,
-        }),
-      });
-
-      if (!saveResponse.ok) {
-        // Include more detailed error message from the API
-        const errorData = await saveResponse.json();
-        throw new Error(`Database API error: ${JSON.stringify(errorData)}`);
+        });
       }
 
-      // After saving, we'll just use the processed data directly for display
-      setResults({
-        contestant,
-        season: "Season 7",
-        date: new Date().toISOString(),
-        posts: postsWithSentiment,
-      });
+      // Fetch data for second contestant if selected
+      if (contestant2 && contestant2 !== contestant) {
+        const params = new URLSearchParams({ contestant: contestant2 });
+        if (timeRange) params.set("t", timeRange);
+        const redditResponse = await fetch(`/api/reddit?${params.toString()}`);
+        if (!redditResponse.ok) {
+          throw new Error(
+            "Failed to fetch posts from Reddit for second contestant."
+          );
+        }
+        const { posts, cached, cacheAge } = await redditResponse.json();
+
+        console.log(
+          `Reddit API returned ${posts.length} total posts for ${contestant2}${
+            cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
+          }`
+        );
+
+        if (!posts || posts.length === 0) {
+          setError(`No posts found for ${contestant2}.`);
+          setLoading(false);
+          return;
+        }
+
+        // Process posts for sentiment analysis
+        const postsWithSentiment = await Promise.all(
+          posts.map(async (post: Post) => {
+            const combinedText = [post.title, post.text]
+              .filter((part) => part && part.trim().length > 0)
+              .join(". ");
+
+            const sentimentResponse = await fetch("/api/sentiment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: combinedText }),
+            });
+
+            if (!sentimentResponse.ok) {
+              const errorData = await sentimentResponse.json();
+              throw new Error(
+                `Sentiment API error: ${JSON.stringify(errorData)}`
+              );
+            }
+
+            const { sentiment } = await sentimentResponse.json();
+            return { ...post, sentiment };
+          })
+        );
+
+        // Save to database
+        const saveResponse = await fetch("/api/database", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contestant: contestant2,
+            season: "Season 7",
+            posts: postsWithSentiment,
+          }),
+        });
+
+        if (!saveResponse.ok) {
+          const errorData = await saveResponse.json();
+          throw new Error(`Database API error: ${JSON.stringify(errorData)}`);
+        }
+
+        setResults2({
+          contestant: contestant2,
+          season: "Season 7",
+          date: new Date().toISOString(),
+          posts: postsWithSentiment,
+        });
+      }
     } catch (err: any) {
       console.error("Error during data processing:", err);
       setError(err.message || "An unknown error occurred.");
@@ -222,13 +306,17 @@ export default function App() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (contestant) {
+    if (contestant || contestant2) {
       fetchAndProcessData();
     }
   };
 
   const handleContestantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setContestant(e.target.value);
+  };
+
+  const handleContestant2Change = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setContestant2(e.target.value);
   };
 
   // Date handlers removed
@@ -240,7 +328,8 @@ export default function App() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [results, selectedSentiments]);
+    setCurrentPage2(1);
+  }, [results, results2, selectedSentiments]);
 
   // Memoize the sentiment data for the charts
   const sentimentData = useMemo(() => {
@@ -258,13 +347,36 @@ export default function App() {
     return chartData;
   }, [results]);
 
+  const sentimentData2 = useMemo(() => {
+    if (!results2) return null;
+    const sentimentCounts = results2.posts.reduce((acc, post) => {
+      acc[post.sentiment] = (acc[post.sentiment] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const chartData = Object.keys(sentimentCounts).map((sentiment) => ({
+      name: sentiment,
+      count: sentimentCounts[sentiment],
+    }));
+
+    return chartData;
+  }, [results2]);
+
   const totalPosts = results?.posts.length || 0;
+  const totalPosts2 = results2?.posts.length || 0;
   const positiveCount =
     sentimentData?.find((d) => d.name === "Positive")?.count || 0;
   const negativeCount =
     sentimentData?.find((d) => d.name === "Negative")?.count || 0;
   const neutralCount =
     sentimentData?.find((d) => d.name === "Neutral")?.count || 0;
+
+  const positiveCount2 =
+    sentimentData2?.find((d) => d.name === "Positive")?.count || 0;
+  const negativeCount2 =
+    sentimentData2?.find((d) => d.name === "Negative")?.count || 0;
+  const neutralCount2 =
+    sentimentData2?.find((d) => d.name === "Neutral")?.count || 0;
 
   const filteredPosts = useMemo(() => {
     if (!results) return [] as Post[];
@@ -273,12 +385,26 @@ export default function App() {
     );
   }, [results, selectedSentiments]);
 
+  const filteredPosts2 = useMemo(() => {
+    if (!results2) return [] as Post[];
+    return results2.posts.filter((post) =>
+      selectedSentiments.includes(post.sentiment)
+    );
+  }, [results2, selectedSentiments]);
+
   const totalFiltered = filteredPosts.length;
+  const totalFiltered2 = filteredPosts2.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / POSTS_PER_PAGE));
+  const totalPages2 = Math.max(1, Math.ceil(totalFiltered2 / POSTS_PER_PAGE));
   const page = Math.min(currentPage, totalPages);
+  const page2 = Math.min(currentPage2, totalPages2);
   const paginatedPosts = filteredPosts.slice(
     (page - 1) * POSTS_PER_PAGE,
     page * POSTS_PER_PAGE
+  );
+  const paginatedPosts2 = filteredPosts2.slice(
+    (page2 - 1) * POSTS_PER_PAGE,
+    page2 * POSTS_PER_PAGE
   );
 
   const toggleSentiment = (name: string) => {
@@ -297,8 +423,16 @@ export default function App() {
             backgroundImage: "url(/background.png)",
           }}
         />
-        {/* Overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/20" />
+      </div>
+
+      {/* Logo in upper left corner */}
+      <div className="fixed top-4 left-4 z-20 hidden md:block">
+        <button
+          onClick={handleLogoClick}
+          className="transition-all duration-200 hover:scale-105"
+        >
+          <img src="/Logo.png" alt="Logo" className="h-24 w-auto" />
+        </button>
       </div>
 
       {/* Content Container */}
@@ -349,29 +483,56 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Middle and Bottom Sections */}
-                <div className="flex gap-8 items-start">
-                  {/* Middle Section - Contestant Selection Grid */}
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-4">
-                      Select Contestant
-                    </label>
-                    <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-lg p-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 h-40 overflow-y-auto snap-y snap-mandatory overflow-x-hidden">
-                        {contestants.map((name) => (
+                {/* Contestant Selection Grid */}
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-4">
+                    Select Contestants (Choose up to 2)
+                  </label>
+                  <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-lg p-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 h-40 overflow-y-auto snap-y snap-mandatory overflow-x-hidden">
+                      {contestants.map((name) => {
+                        const isSelected =
+                          contestant === name || contestant2 === name;
+                        const isFirst = contestant === name;
+                        const isSecond = contestant2 === name;
+
+                        return (
                           <button
                             type="button"
                             key={name}
-                            onClick={() => setContestant(name)}
+                            onClick={() => {
+                              if (isSelected) {
+                                // Unselect if already selected
+                                if (isFirst) {
+                                  setContestant("");
+                                } else if (isSecond) {
+                                  setContestant2("");
+                                }
+                              } else {
+                                // Select if not already selected
+                                if (!contestant) {
+                                  setContestant(name);
+                                } else if (!contestant2) {
+                                  setContestant2(name);
+                                }
+                                // If both are already selected, don't allow more selections
+                              }
+                            }}
                             className={`group relative rounded-lg border-2 p-3 text-center transition-all duration-200 bg-white/95 backdrop-blur-sm hover:shadow-md snap-start ${
-                              contestant === name
-                                ? "border-blue-500 shadow-lg ring-2 ring-blue-200"
+                              isSelected
+                                ? isFirst
+                                  ? "border-blue-500 shadow-lg ring-2 ring-blue-200"
+                                  : "border-green-500 shadow-lg ring-2 ring-green-200"
                                 : "border-gray-200 hover:border-gray-300"
                             }`}
                           >
-                            {contestant === name && (
-                              <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow-lg z-10">
-                                ✓
+                            {isSelected && (
+                              <div
+                                className={`absolute -top-2 -right-2 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow-lg z-10 ${
+                                  isFirst ? "bg-blue-500" : "bg-green-500"
+                                }`}
+                              >
+                                {isFirst ? "1" : "2"}
                               </div>
                             )}
                             <img
@@ -384,16 +545,18 @@ export default function App() {
                             />
                             <span
                               className={`block text-xs font-medium truncate ${
-                                contestant === name
-                                  ? "text-blue-700"
+                                isSelected
+                                  ? isFirst
+                                    ? "text-blue-700"
+                                    : "text-green-700"
                                   : "text-gray-700 group-hover:text-gray-900"
                               }`}
                             >
                               {name}
                             </span>
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -432,72 +595,189 @@ export default function App() {
             {results && (
               <div className="mt-8 space-y-6">
                 <h2 className="text-3xl font-bold text-center text-gray-900">
-                  Sentiment Results for {results.contestant}
+                  {results2
+                    ? `Sentiment Comparison: ${results.contestant} vs ${results2.contestant}`
+                    : `Sentiment Results for ${results.contestant}`}
                 </h2>
 
                 <DashboardSection title="Sentiment Overview">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">
-                        Sentiment Distribution (Bar Chart)
-                      </h4>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={sentimentData as any[]}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Legend />
-                          <Bar dataKey="count" fill="#8884d8">
-                            {sentimentData?.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={getSentimentColor((entry as any).name)}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* First Contestant Charts */}
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-semibold text-blue-700 text-center">
+                        {results.contestant}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                          <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                            Bar Chart
+                          </h4>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={sentimentData as any[]}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="count" fill="#8884d8">
+                                {sentimentData?.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={getSentimentColor(
+                                      (entry as any).name
+                                    )}
+                                  />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                          <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                            Pie Chart
+                          </h4>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <PieChart>
+                              <Pie
+                                data={sentimentData as any[]}
+                                dataKey="count"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={60}
+                                fill="#8884d8"
+                                labelLine={false}
+                              >
+                                {sentimentData?.map((entry, index) => (
+                                  <Cell
+                                    key={`cell-${index}`}
+                                    fill={getSentimentColor(
+                                      (entry as any).name
+                                    )}
+                                  />
+                                ))}
+                                <LabelList
+                                  dataKey="count"
+                                  position="inside"
+                                  fill="#fff"
+                                  fontSize={12}
+                                />
+                              </Pie>
+                              <Tooltip />
+                              {!results2 && <Legend />}
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
-                      <h4 className="text-lg font-semibold text-gray-700 mb-2">
-                        Sentiment Distribution (Pie Chart)
-                      </h4>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
-                            data={sentimentData as any[]}
-                            dataKey="count"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            fill="#8884d8"
-                            labelLine={false}
-                          >
-                            {sentimentData?.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={getSentimentColor((entry as any).name)}
-                              />
-                            ))}
-                            <LabelList
-                              dataKey="count"
-                              position="inside"
-                              fill="#fff"
-                              fontSize={12}
-                            />
-                          </Pie>
-                          <Tooltip />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {/* Second Contestant Charts (if available) */}
+                    {results2 && (
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold text-green-700 text-center">
+                          {results2.contestant}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                            <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                              Bar Chart
+                            </h4>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <BarChart data={sentimentData2 as any[]}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis />
+                                <Tooltip />
+                                <Legend />
+                                <Bar dataKey="count" fill="#8884d8">
+                                  {sentimentData2?.map((entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={getSentimentColor(
+                                        (entry as any).name
+                                      )}
+                                    />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                            <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                              Pie Chart
+                            </h4>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <Pie
+                                  data={sentimentData2 as any[]}
+                                  dataKey="count"
+                                  nameKey="name"
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={60}
+                                  fill="#8884d8"
+                                  labelLine={false}
+                                >
+                                  {sentimentData2?.map((entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={getSentimentColor(
+                                        (entry as any).name
+                                      )}
+                                    />
+                                  ))}
+                                  <LabelList
+                                    dataKey="count"
+                                    position="inside"
+                                    fill="#fff"
+                                    fontSize={12}
+                                  />
+                                </Pie>
+                                <Tooltip />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </DashboardSection>
 
                 <DashboardSection title="Recent Posts & Sentiment">
+                  {/* Contestant Switcher for Comparison Mode */}
+                  {results2 && (
+                    <div className="flex justify-center mb-6">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveContestant("first")}
+                            className={`px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                              activeContestant === "first"
+                                ? "bg-blue-500 text-white shadow-md"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            {results.contestant}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveContestant("second")}
+                            className={`px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                              activeContestant === "second"
+                                ? "bg-green-500 text-white shadow-md"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                          >
+                            {results2.contestant}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col gap-3 mb-4">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="text-sm text-gray-600">
@@ -534,32 +814,64 @@ export default function App() {
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <span>
                         Showing{" "}
-                        {totalFiltered === 0
+                        {activeContestant === "first"
+                          ? totalFiltered === 0
+                            ? 0
+                            : (page - 1) * POSTS_PER_PAGE + 1
+                          : totalFiltered2 === 0
                           ? 0
-                          : (page - 1) * POSTS_PER_PAGE + 1}
-                        -{Math.min(page * POSTS_PER_PAGE, totalFiltered)} of{" "}
-                        {totalFiltered}
+                          : (page2 - 1) * POSTS_PER_PAGE + 1}
+                        -
+                        {activeContestant === "first"
+                          ? Math.min(page * POSTS_PER_PAGE, totalFiltered)
+                          : Math.min(
+                              page2 * POSTS_PER_PAGE,
+                              totalFiltered2
+                            )}{" "}
+                        of{" "}
+                        {activeContestant === "first"
+                          ? totalFiltered
+                          : totalFiltered2}
                       </span>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
+                            activeContestant === "first"
+                              ? setCurrentPage((p) => Math.max(1, p - 1))
+                              : setCurrentPage2((p) => Math.max(1, p - 1))
                           }
-                          disabled={page === 1}
+                          disabled={
+                            activeContestant === "first"
+                              ? page === 1
+                              : page2 === 1
+                          }
                           className="px-3 py-1 rounded border border-gray-300 bg-white/90 backdrop-blur-sm text-gray-700 disabled:opacity-50"
                         >
                           Prev
                         </button>
                         <span>
-                          Page {page} of {totalPages}
+                          Page {activeContestant === "first" ? page : page2} of{" "}
+                          {activeContestant === "first"
+                            ? totalPages
+                            : totalPages2}
                         </span>
                         <button
                           type="button"
                           onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                            activeContestant === "first"
+                              ? setCurrentPage((p) =>
+                                  Math.min(totalPages, p + 1)
+                                )
+                              : setCurrentPage2((p) =>
+                                  Math.min(totalPages2, p + 1)
+                                )
                           }
-                          disabled={page === totalPages || totalFiltered === 0}
+                          disabled={
+                            activeContestant === "first"
+                              ? page === totalPages || totalFiltered === 0
+                              : page2 === totalPages2 || totalFiltered2 === 0
+                          }
                           className="px-3 py-1 rounded border border-gray-300 bg-white/90 backdrop-blur-sm text-gray-700 disabled:opacity-50"
                         >
                           Next
@@ -569,12 +881,18 @@ export default function App() {
                   </div>
 
                   <div className="space-y-4">
-                    {paginatedPosts.length === 0 && (
+                    {(activeContestant === "first"
+                      ? paginatedPosts
+                      : paginatedPosts2
+                    ).length === 0 && (
                       <div className="p-4 text-sm text-gray-600 border border-gray-200 rounded-md bg-white/90 backdrop-blur-sm">
                         No posts match the selected filters.
                       </div>
                     )}
-                    {paginatedPosts.map((post) => (
+                    {(activeContestant === "first"
+                      ? paginatedPosts
+                      : paginatedPosts2
+                    ).map((post) => (
                       <div
                         key={post.url}
                         className="p-4 border border-white/30 rounded-md hover:shadow-md transition-shadow bg-white/90 backdrop-blur-sm"
