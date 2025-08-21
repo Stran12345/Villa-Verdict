@@ -311,14 +311,6 @@ export default function App() {
     }
   };
 
-  const handleContestantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setContestant(e.target.value);
-  };
-
-  const handleContestant2Change = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setContestant2(e.target.value);
-  };
-
   // Date handlers removed
 
   useEffect(() => {
@@ -361,22 +353,6 @@ export default function App() {
 
     return chartData;
   }, [results2]);
-
-  const totalPosts = results?.posts.length || 0;
-  const totalPosts2 = results2?.posts.length || 0;
-  const positiveCount =
-    sentimentData?.find((d) => d.name === "Positive")?.count || 0;
-  const negativeCount =
-    sentimentData?.find((d) => d.name === "Negative")?.count || 0;
-  const neutralCount =
-    sentimentData?.find((d) => d.name === "Neutral")?.count || 0;
-
-  const positiveCount2 =
-    sentimentData2?.find((d) => d.name === "Positive")?.count || 0;
-  const negativeCount2 =
-    sentimentData2?.find((d) => d.name === "Negative")?.count || 0;
-  const neutralCount2 =
-    sentimentData2?.find((d) => d.name === "Neutral")?.count || 0;
 
   const filteredPosts = useMemo(() => {
     if (!results) return [] as Post[];
@@ -442,10 +418,11 @@ export default function App() {
           <div className="backdrop-blur-md bg-white/90 rounded-2xl shadow-2xl border border-white/20 p-8">
             <header className="text-center">
               <h1 className="text-5xl font-extrabold tracking-tight text-gray-900">
-                Love Island USA Season 7 Sentiment
+                Love Island Sentiment Dashboard
               </h1>
               <p className="mt-4 text-lg text-gray-700">
-                Analyze public sentiment about contestants from Reddit.
+                Analyze public sentiment about Love Island Season 7 contestants
+                from Reddit!
               </p>
             </header>
 
@@ -953,6 +930,28 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="relative z-10 bg-white/90 backdrop-blur-sm border-t border-white/30 mt-16">
+        <div className="max-w-4xl mx-auto px-8 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-gray-600">
+              © {new Date().getFullYear()} Villa Verdict. All rights reserved.
+            </div>
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <span>Built by Steven Tran</span>
+              <a
+                href="https://www.linkedin.com/in/steventran246"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 hover:underline"
+              >
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
