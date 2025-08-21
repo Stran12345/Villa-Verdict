@@ -284,326 +284,352 @@ export default function App() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8 flex flex-col items-center">
-      <div className="w-full max-w-4xl space-y-8">
-        <header className="text-center">
-          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900">
-            Love Island USA Season 7 Sentiment
-          </h1>
-          <p className="mt-4 text-lg text-gray-600">
-            Analyze public sentiment about contestants from Reddit.
-          </p>
-        </header>
+    <main className="min-h-screen relative overflow-hidden">
+      {/* Parallax Background */}
+      <div className="fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-110"
+          style={{
+            backgroundImage: "url(/background.jpg)",
+          }}
+        />
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/20" />
+      </div>
 
-        {/* Input Form */}
-        <div className="bg-white p-8 rounded-xl shadow-xl border border-gray-200">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Top Section - Time Range Dropdown */}
-            <div className="w-full">
-              <label
-                htmlFor="time-range"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Top Posts From
-              </label>
-              <div className="relative">
-                <select
-                  id="time-range"
-                  name="time-range"
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value)}
-                  className="w-full pl-3 pr-10 py-2.5 text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm appearance-none bg-white"
-                >
-                  {TIME_RANGES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                  <ChevronDown
-                    className="h-5 w-5 text-gray-400"
-                    aria-hidden="true"
-                  />
+      {/* Content Container */}
+      <div className="relative z-10 min-h-screen p-8 flex flex-col items-center">
+        <div className="w-full max-w-4xl space-y-8">
+          {/* Semi-transparent Content Card */}
+          <div className="backdrop-blur-md bg-white/90 rounded-2xl shadow-2xl border border-white/20 p-8">
+            <header className="text-center">
+              <h1 className="text-5xl font-extrabold tracking-tight text-gray-900">
+                Love Island USA Season 7 Sentiment
+              </h1>
+              <p className="mt-4 text-lg text-gray-700">
+                Analyze public sentiment about contestants from Reddit.
+              </p>
+            </header>
+
+            {/* Input Form */}
+            <div className="bg-white/95 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/30 mt-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Top Section - Time Range Dropdown */}
+                <div className="w-full">
+                  <label
+                    htmlFor="time-range"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Top Posts From
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="time-range"
+                      name="time-range"
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(e.target.value)}
+                      className="w-full pl-3 pr-10 py-2.5 text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm appearance-none bg-white/90 backdrop-blur-sm"
+                    >
+                      {TIME_RANGES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                      <ChevronDown
+                        className="h-5 w-5 text-gray-400"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+
+                {/* Middle and Bottom Sections */}
+                <div className="flex gap-8 items-start">
+                  {/* Middle Section - Contestant Selection Grid */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-4">
+                      Select Contestant
+                    </label>
+                    <div className="bg-white/90 backdrop-blur-sm border border-white/30 rounded-lg p-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 h-40 overflow-y-auto snap-y snap-mandatory overflow-x-hidden">
+                        {contestants.map((name) => (
+                          <button
+                            type="button"
+                            key={name}
+                            onClick={() => setContestant(name)}
+                            className={`group relative rounded-lg border-2 p-3 text-center transition-all duration-200 bg-white/95 backdrop-blur-sm hover:shadow-md snap-start ${
+                              contestant === name
+                                ? "border-blue-500 shadow-lg ring-2 ring-blue-200"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            {contestant === name && (
+                              <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                                ✓
+                              </div>
+                            )}
+                            <img
+                              src={`/islanders/${encodeURIComponent(
+                                name
+                              )}.webp`}
+                              alt={name}
+                              className="w-full h-24 object-cover object-top rounded-md mb-2"
+                              loading="lazy"
+                            />
+                            <span
+                              className={`block text-xs font-medium truncate ${
+                                contestant === name
+                                  ? "text-blue-700"
+                                  : "text-gray-700 group-hover:text-gray-900"
+                              }`}
+                            >
+                              {name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Section - Analyze Button */}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-8 py-3 border border-transparent text-base font-medium rounded-lg shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transform hover:scale-105"
+                  >
+                    {loading ? (
+                      <span className="flex items-center">
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Analyzing...
+                      </span>
+                    ) : (
+                      "Analyze Sentiment"
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
 
-            {/* Middle and Bottom Sections */}
-            <div className="flex gap-8 items-start">
-              {/* Middle Section - Contestant Selection Grid */}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-4">
-                  Select Contestant
-                </label>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 h-40 overflow-y-auto snap-y snap-mandatory overflow-x-hidden">
-                    {contestants.map((name) => (
-                      <button
-                        type="button"
-                        key={name}
-                        onClick={() => setContestant(name)}
-                        className={`group relative rounded-lg border-2 p-3 text-center transition-all duration-200 bg-white hover:shadow-md snap-start ${
-                          contestant === name
-                            ? "border-blue-500 shadow-lg ring-2 ring-blue-200"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        {contestant === name && (
-                          <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow-lg z-10">
-                            ✓
-                          </div>
-                        )}
-                        <img
-                          src={`/islanders/${encodeURIComponent(name)}.webp`}
-                          alt={name}
-                          className="w-full h-24 object-cover object-top rounded-md mb-2"
-                          loading="lazy"
+            {/* Display Error Message */}
+            {error && (
+              <div
+                className="backdrop-blur-md bg-red-100/90 border border-red-400/50 text-red-700 px-4 py-3 rounded-xl relative mt-6"
+                role="alert"
+              >
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
+
+            {/* Display Results */}
+            {results && (
+              <div className="mt-8 space-y-6">
+                <h2 className="text-3xl font-bold text-center text-gray-900">
+                  Sentiment Results for {results.contestant}
+                </h2>
+
+                <DashboardSection title="Sentiment Overview">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                      <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                        Sentiment Distribution (Bar Chart)
+                      </h4>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={sentimentData as any[]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="count" fill="#8884d8">
+                            {sentimentData?.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={getSentimentColor((entry as any).name)}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg border border-white/30">
+                      <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                        Sentiment Distribution (Pie Chart)
+                      </h4>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={sentimentData as any[]}
+                            dataKey="count"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            fill="#8884d8"
+                            labelLine={false}
+                          >
+                            {sentimentData?.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={getSentimentColor((entry as any).name)}
+                              />
+                            ))}
+                            <LabelList
+                              dataKey="count"
+                              position="inside"
+                              fill="#fff"
+                              fontSize={12}
+                            />
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </DashboardSection>
+
+                <DashboardSection title="Recent Posts & Sentiment">
+                  <div className="flex flex-col gap-3 mb-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm text-gray-600">
+                        Filter by sentiment:
+                      </span>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          checked={selectedSentiments.includes("Positive")}
+                          onChange={() => toggleSentiment("Positive")}
                         />
-                        <span
-                          className={`block text-xs font-medium truncate ${
-                            contestant === name
-                              ? "text-blue-700"
-                              : "text-gray-700 group-hover:text-gray-900"
-                          }`}
+                        <span className="text-sm text-green-700">Positive</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                          checked={selectedSentiments.includes("Neutral")}
+                          onChange={() => toggleSentiment("Neutral")}
+                        />
+                        <span className="text-sm text-yellow-700">Neutral</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                          checked={selectedSentiments.includes("Negative")}
+                          onChange={() => toggleSentiment("Negative")}
+                        />
+                        <span className="text-sm text-red-700">Negative</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>
+                        Showing{" "}
+                        {totalFiltered === 0
+                          ? 0
+                          : (page - 1) * POSTS_PER_PAGE + 1}
+                        -{Math.min(page * POSTS_PER_PAGE, totalFiltered)} of{" "}
+                        {totalFiltered}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={page === 1}
+                          className="px-3 py-1 rounded border border-gray-300 bg-white/90 backdrop-blur-sm text-gray-700 disabled:opacity-50"
                         >
-                          {name}
+                          Prev
+                        </button>
+                        <span>
+                          Page {page} of {totalPages}
                         </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
+                          disabled={page === totalPages || totalFiltered === 0}
+                          className="px-3 py-1 rounded border border-gray-300 bg-white/90 backdrop-blur-sm text-gray-700 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {paginatedPosts.length === 0 && (
+                      <div className="p-4 text-sm text-gray-600 border border-gray-200 rounded-md bg-white/90 backdrop-blur-sm">
+                        No posts match the selected filters.
+                      </div>
+                    )}
+                    {paginatedPosts.map((post) => (
+                      <div
+                        key={post.url}
+                        className="p-4 border border-white/30 rounded-md hover:shadow-md transition-shadow bg-white/90 backdrop-blur-sm"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-semibold text-gray-800 text-lg">
+                            {post.title}
+                          </h4>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+                          {post.text}
+                        </p>
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                          <span>By u/{post.author}</span>
+                          <span>
+                            {new Date(post.date).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                          <span>↑ {post.score} points</span>
+                          <span>💬 {post.numComments} comments</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm">
+                            Sentiment:{" "}
+                            <span
+                              className={`font-bold ${
+                                post.sentiment === "Positive"
+                                  ? "text-green-600"
+                                  : post.sentiment === "Negative"
+                                  ? "text-red-600"
+                                  : "text-yellow-600"
+                              }`}
+                            >
+                              {post.sentiment}
+                            </span>
+                          </p>
+
+                          <a
+                            href={post.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline"
+                          >
+                            View on Reddit →
+                          </a>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
+                </DashboardSection>
               </div>
-            </div>
-
-            {/* Bottom Section - Analyze Button */}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-8 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg"
-              >
-                {loading ? (
-                  <span className="flex items-center">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Analyzing...
-                  </span>
-                ) : (
-                  "Analyze Sentiment"
-                )}
-              </button>
-            </div>
-          </form>
+            )}
+          </div>
         </div>
-
-        {/* Display Error Message */}
-        {error && (
-          <div
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative"
-            role="alert"
-          >
-            <span className="block sm:inline">{error}</span>
-          </div>
-        )}
-
-        {/* Display Results */}
-        {results && (
-          <div className="mt-8 space-y-6">
-            <h2 className="text-3xl font-bold text-center text-gray-900">
-              Sentiment Results for {results.contestant}
-            </h2>
-
-            <DashboardSection title="Sentiment Overview">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-2">
-                    Sentiment Distribution (Bar Chart)
-                  </h4>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={sentimentData as any[]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#8884d8">
-                        {sentimentData?.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={getSentimentColor((entry as any).name)}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-2">
-                    Sentiment Distribution (Pie Chart)
-                  </h4>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={sentimentData as any[]}
-                        dataKey="count"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        labelLine={false}
-                      >
-                        {sentimentData?.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={getSentimentColor((entry as any).name)}
-                          />
-                        ))}
-                        <LabelList
-                          dataKey="count"
-                          position="inside"
-                          fill="#fff"
-                          fontSize={12}
-                        />
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </DashboardSection>
-
-            <DashboardSection title="Recent Posts & Sentiment">
-              <div className="flex flex-col gap-3 mb-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm text-gray-600">
-                    Filter by sentiment:
-                  </span>
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                      checked={selectedSentiments.includes("Positive")}
-                      onChange={() => toggleSentiment("Positive")}
-                    />
-                    <span className="text-sm text-green-700">Positive</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
-                      checked={selectedSentiments.includes("Neutral")}
-                      onChange={() => toggleSentiment("Neutral")}
-                    />
-                    <span className="text-sm text-yellow-700">Neutral</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                      checked={selectedSentiments.includes("Negative")}
-                      onChange={() => toggleSentiment("Negative")}
-                    />
-                    <span className="text-sm text-red-700">Negative</span>
-                  </label>
-                </div>
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <span>
-                    Showing{" "}
-                    {totalFiltered === 0 ? 0 : (page - 1) * POSTS_PER_PAGE + 1}-
-                    {Math.min(page * POSTS_PER_PAGE, totalFiltered)} of{" "}
-                    {totalFiltered}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
-                    >
-                      Prev
-                    </button>
-                    <span>
-                      Page {page} of {totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={page === totalPages || totalFiltered === 0}
-                      className="px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {paginatedPosts.length === 0 && (
-                  <div className="p-4 text-sm text-gray-600 border border-gray-200 rounded-md">
-                    No posts match the selected filters.
-                  </div>
-                )}
-                {paginatedPosts.map((post) => (
-                  <div
-                    key={post.url}
-                    className="p-4 border border-gray-200 rounded-md hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold text-gray-800 text-lg">
-                        {post.title}
-                      </h4>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-3">
-                      {post.text}
-                    </p>
-
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                      <span>By u/{post.author}</span>
-                      <span>{new Date(post.date).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                      <span>↑ {post.score} points</span>
-                      <span>💬 {post.numComments} comments</span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm">
-                        Sentiment:{" "}
-                        <span
-                          className={`font-bold ${
-                            post.sentiment === "Positive"
-                              ? "text-green-600"
-                              : post.sentiment === "Negative"
-                              ? "text-red-600"
-                              : "text-yellow-600"
-                          }`}
-                        >
-                          {post.sentiment}
-                        </span>
-                      </p>
-
-                      <a
-                        href={post.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline"
-                      >
-                        View on Reddit →
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </DashboardSection>
-          </div>
-        )}
       </div>
     </main>
   );
