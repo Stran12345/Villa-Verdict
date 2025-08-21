@@ -78,39 +78,6 @@ export async function GET(req: Request) {
 
     console.log(`Normalized time range: ${timeRange}`);
 
-    // Check cache first
-    console.log("🔍 Checking cache for existing posts...");
-    try {
-      const cacheResponse = await fetch(
-        `${
-          req.url.split("/api/reddit")[0]
-        }/api/database?type=reddit&contestant=${encodeURIComponent(
-          contestant
-        )}&timeRange=${encodeURIComponent(timeRange)}`
-      );
-
-      if (cacheResponse.ok) {
-        const cacheData = await cacheResponse.json();
-
-        if (cacheData.cached) {
-          console.log(
-            `📦 Found cached posts for ${contestant} (${timeRange}) - serving ${cacheData.posts.length} posts`
-          );
-          return NextResponse.json({
-            posts: cacheData.posts,
-            totalFound: cacheData.totalFound,
-            subredditsSearched: cacheData.subredditsSearched,
-            cached: true,
-            cacheAge: cacheData.cacheAge,
-          });
-        } else {
-          console.log("❌ No valid cache found, fetching from Reddit API");
-        }
-      }
-    } catch (error) {
-      console.warn("Cache check failed, proceeding with Reddit API:", error);
-    }
-
     // Get Reddit OAuth token
     const token = await getRedditToken();
     const headers: Record<string, string> = {
@@ -257,38 +224,6 @@ export async function GET(req: Request) {
     console.log(
       `Total unique posts found: ${allPosts.length}, returning top ${topPosts.length}`
     );
-
-    // Cache the results for future requests
-    if (topPosts.length > 0) {
-      console.log("💾 Caching posts for future requests...");
-      try {
-        const cacheResponse = await fetch(
-          `${req.url.split("/api/reddit")[0]}/api/database`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contestant,
-              timeRange,
-              posts: topPosts,
-            }),
-          }
-        );
-
-        if (cacheResponse.ok) {
-          const cacheResult = await cacheResponse.json();
-          console.log(
-            `✅ Successfully cached ${cacheResult.cachedPosts} posts`
-          );
-        } else {
-          console.warn("Failed to cache posts:", cacheResponse.status);
-        }
-      } catch (error) {
-        console.warn("Cache storage failed:", error);
-      }
-    }
 
     return NextResponse.json({
       posts: topPosts,
