@@ -139,9 +139,13 @@ export default function App() {
       if (!redditResponse.ok) {
         throw new Error("Failed to fetch posts from Reddit.");
       }
-      const { posts } = await redditResponse.json();
+      const { posts, cached, cacheAge } = await redditResponse.json();
 
-      console.log(`Reddit API returned ${posts.length} total posts`);
+      console.log(
+        `Reddit API returned ${posts.length} total posts${
+          cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
+        }`
+      );
 
       if (!posts || posts.length === 0) {
         setError("No posts found for the selected contestant.");
@@ -290,7 +294,7 @@ export default function App() {
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-110"
           style={{
-            backgroundImage: "url(/background.jpg)",
+            backgroundImage: "url(/background.png)",
           }}
         />
         {/* Overlay for better text readability */}
