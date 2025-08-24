@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Villa Verdict
 
-## Getting Started
+## Project Overview
 
-First, run the development server:
+Villa Verdict is designed to provide insights into public sentiment towards Love Island USA contestants through real-time social media analysis. It offers both individual contestant analysis and side-by-side comparison modes, calculating sentiment based on Reddit posts and comments from the Love Island community.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+The app allows users to compare contestants using interactive charts and generate detailed sentiment reports with visualizations.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. Contestant Sentiment Analysis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Retrieve and analyze Reddit posts mentioning specific Love Island USA contestants
+- Generate sentiment analysis using Hugging Face's advanced NLP models
+- View sentiment distribution through interactive pie charts and bar graphs
+- Filter posts by time range (hour, day, week, month, year, all)
 
-## Learn More
+### 2. Contestant Comparison
 
-To learn more about Next.js, take a look at the following resources:
+- Compare up to two contestants simultaneously
+- Side-by-side sentiment analysis with parallel charts
+- Toggle between contestants' Reddit posts for detailed comparison
+- Interactive data visualization with responsive charts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Responsive UI
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Mobile-friendly interface with responsive design
+- Interactive contestant selection grid
+- Real-time loading states and error handling
+- Modern, clean interface with Tailwind CSS styling
 
-## Deploy on Vercel
+### 4. Advanced Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Clickable logo for quick page refresh and reset
+- Paginated post display with sentiment filtering
+- Comprehensive error handling and fallback strategies
+- Multiple search strategies for Reddit API integration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+
+### Frontend
+
+- **Next.js 15**: React framework for server-side rendering and API routes
+- **TypeScript**: For type safety and better development experience
+- **Tailwind CSS**: For responsive design and modern styling
+- **Recharts**: For interactive data visualizations (bar charts, pie charts)
+
+### Backend
+
+- **Next.js API Routes**: For server-side logic and API endpoints
+- **Hugging Face Transformers**: For advanced sentiment analysis using pre-trained NLP models
+
+### Libraries and Tools
+
+- **Reddit API**: For fetching posts and comments from r/LoveIslandUSA
+- **Hugging Face Inference API**: For sentiment analysis using cardiffnlp/twitter-roberta-base-sentiment model
+- **ESLint**: For code quality and consistency
+- **Vercel**: For deployment and hosting
+
+## Demo Link
+
+- **Live Demo**: [Your Vercel deployment URL here]
+
+## Setup Instructions
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Create a `.env.local` file with your API keys:
+   ```
+   HUGGING_FACE_API_KEY=your_hugging_face_token
+   REDDIT_CLIENT_ID=your_reddit_client_id
+   REDDIT_CLIENT_SECRET=your_reddit_client_secret
+   ```
+4. Run the development server: `npm run dev`
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## API Integration
+
+The app integrates with multiple APIs to provide comprehensive sentiment analysis:
+
+- **Reddit API**: Fetches posts and comments from Love Island subreddits
+- **Hugging Face API**: Performs sentiment analysis using state-of-the-art NLP models
+- **Fallback Strategies**: Multiple search approaches to ensure reliable data retrieval
+
+## Deployment
+
+The application is optimized for deployment on Vercel with:
+
+- Serverless API routes
+- Environment variable configuration
+- Automatic builds and deployments
+- Edge caching for optimal performance
