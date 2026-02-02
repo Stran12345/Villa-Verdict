@@ -1,4 +1,4 @@
-// src/app/api/sentiment/route.ts
+// src/app/api/sentiment/batch/route.ts
 
 import { NextResponse } from "next/server";
 import { analyzeSentiment } from "@/lib/sentiment";
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { text?: unknown };
+  let body: { texts?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -24,23 +24,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const { text } = body;
+  const { texts } = body;
 
-  if (!text || typeof text !== "string") {
+  if (!Array.isArray(texts)) {
     return NextResponse.json(
-      { error: 'Invalid input: "text" field is required and must be a string' },
+      { error: 'Invalid input: "texts" field is required and must be an array of strings' },
       { status: 400 }
     );
   }
 
-  const cleanedText = text.trim();
-  if (cleanedText.length === 0) {
-    return NextResponse.json(
-      { error: "Text cannot be empty after trimming" },
-      { status: 400 }
-    );
-  }
+  const validatedTexts = texts.map((t) =>
+    typeof t === "string" ? t.trim() : ""
+  );
 
-  const sentiment = await analyzeSentiment(cleanedText);
-  return NextResponse.json({ sentiment });
+  const sentiments = await Promise.all(
+    validatedTexts.map((text) => analyzeSentiment(text || " "))
+  );
+
+  return NextResponse.json({ sentiments });
 }

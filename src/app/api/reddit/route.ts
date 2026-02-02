@@ -385,8 +385,8 @@ export async function GET(req: Request) {
     // Sort posts by score (upvotes) to get the most relevant ones first
     allPosts.sort((a, b) => b.score - a.score);
 
-    // Limit to top 50 posts total
-    const topPosts = allPosts.slice(0, 50);
+    // Limit to top 25 posts total
+    const topPosts = allPosts.slice(0, 25);
 
     console.log(
       `Total unique posts found: ${allPosts.length}, returning top ${topPosts.length}`

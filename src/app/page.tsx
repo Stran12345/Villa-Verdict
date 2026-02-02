@@ -175,30 +175,28 @@ export default function App() {
           return;
         }
 
-        // Process posts for sentiment analysis
-        const postsWithSentiment = await Promise.all(
-          posts.map(async (post: Post) => {
-            const combinedText = [post.title, post.text]
-              .filter((part) => part && part.trim().length > 0)
-              .join(". ");
-
-            const sentimentResponse = await fetch("/api/sentiment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: combinedText }),
-            });
-
-            if (!sentimentResponse.ok) {
-              const errorData = await sentimentResponse.json();
-              throw new Error(
-                `Sentiment API error: ${JSON.stringify(errorData)}`
-              );
-            }
-
-            const { sentiment } = await sentimentResponse.json();
-            return { ...post, sentiment };
-          })
+        // Process posts for sentiment analysis (batch)
+        const texts = posts.map((post: Post) =>
+          [post.title, post.text]
+            .filter((part) => part && part.trim().length > 0)
+            .join(". ")
         );
+        const sentimentResponse = await fetch("/api/sentiment/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texts }),
+        });
+        if (!sentimentResponse.ok) {
+          const errorData = await sentimentResponse.json();
+          throw new Error(
+            `Sentiment API error: ${JSON.stringify(errorData)}`
+          );
+        }
+        const { sentiments } = await sentimentResponse.json();
+        const postsWithSentiment = posts.map((post: Post, i: number) => ({
+          ...post,
+          sentiment: sentiments[i] ?? "Neutral",
+        }));
 
         // Save to database
         const saveResponse = await fetch("/api/database", {
@@ -248,30 +246,28 @@ export default function App() {
           return;
         }
 
-        // Process posts for sentiment analysis
-        const postsWithSentiment = await Promise.all(
-          posts.map(async (post: Post) => {
-            const combinedText = [post.title, post.text]
-              .filter((part) => part && part.trim().length > 0)
-              .join(". ");
-
-            const sentimentResponse = await fetch("/api/sentiment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: combinedText }),
-            });
-
-            if (!sentimentResponse.ok) {
-              const errorData = await sentimentResponse.json();
-              throw new Error(
-                `Sentiment API error: ${JSON.stringify(errorData)}`
-              );
-            }
-
-            const { sentiment } = await sentimentResponse.json();
-            return { ...post, sentiment };
-          })
+        // Process posts for sentiment analysis (batch)
+        const texts2 = posts.map((post: Post) =>
+          [post.title, post.text]
+            .filter((part) => part && part.trim().length > 0)
+            .join(". ")
         );
+        const sentimentResponse2 = await fetch("/api/sentiment/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texts: texts2 }),
+        });
+        if (!sentimentResponse2.ok) {
+          const errorData = await sentimentResponse2.json();
+          throw new Error(
+            `Sentiment API error: ${JSON.stringify(errorData)}`
+          );
+        }
+        const { sentiments: sentiments2 } = await sentimentResponse2.json();
+        const postsWithSentiment = posts.map((post: Post, i: number) => ({
+          ...post,
+          sentiment: sentiments2[i] ?? "Neutral",
+        }));
 
         // Save to database
         const saveResponse = await fetch("/api/database", {
@@ -443,7 +439,7 @@ export default function App() {
                       name="time-range"
                       value={timeRange}
                       onChange={(e) => setTimeRange(e.target.value)}
-                      className="w-full pl-3 pr-10 py-2.5 text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm appearance-none bg-white/90 backdrop-blur-sm"
+                      className="w-full pl-3 pr-10 py-2.5 text-sm text-gray-900 font-medium border-2 border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm appearance-none bg-white"
                     >
                       {TIME_RANGES.map((r) => (
                         <option key={r.value} value={r.value}>
@@ -453,7 +449,7 @@ export default function App() {
                     </select>
                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                       <ChevronDown
-                        className="h-5 w-5 text-gray-400"
+                        className="h-5 w-5 text-gray-600"
                         aria-hidden="true"
                       />
                     </div>
@@ -594,7 +590,13 @@ export default function App() {
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
                               <YAxis />
-                              <Tooltip />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "#fff",
+                                  border: "1px solid #e5e7eb",
+                                }}
+                                labelStyle={{ color: "#1f2937", fontWeight: 600 }}
+                              />
                               <Legend />
                               <Bar dataKey="count" fill="#8884d8">
                                 {sentimentData?.map((entry, index) => (
@@ -641,7 +643,13 @@ export default function App() {
                                   fontSize={12}
                                 />
                               </Pie>
-                              <Tooltip />
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: "#fff",
+                                  border: "1px solid #e5e7eb",
+                                }}
+                                labelStyle={{ color: "#1f2937", fontWeight: 600 }}
+                              />
                               {!results2 && <Legend />}
                             </PieChart>
                           </ResponsiveContainer>
@@ -665,7 +673,16 @@ export default function App() {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis />
-                                <Tooltip />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: "#fff",
+                                    border: "1px solid #e5e7eb",
+                                  }}
+                                  labelStyle={{
+                                    color: "#1f2937",
+                                    fontWeight: 600,
+                                  }}
+                                />
                                 <Legend />
                                 <Bar dataKey="count" fill="#8884d8">
                                   {sentimentData2?.map((entry, index) => (
@@ -712,7 +729,16 @@ export default function App() {
                                     fontSize={12}
                                   />
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: "#fff",
+                                    border: "1px solid #e5e7eb",
+                                  }}
+                                  labelStyle={{
+                                    color: "#1f2937",
+                                    fontWeight: 600,
+                                  }}
+                                />
                               </PieChart>
                             </ResponsiveContainer>
                           </div>
@@ -897,7 +923,7 @@ export default function App() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <p className="text-sm">
+                          <p className="text-sm text-gray-700 font-medium">
                             Sentiment:{" "}
                             <span
                               className={`font-bold ${
