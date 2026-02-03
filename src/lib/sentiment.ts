@@ -1,5 +1,24 @@
 // src/lib/sentiment.ts - Shared sentiment analysis logic
 
+import Sentiment from "sentiment";
+
+const sentimentAnalyzer = new Sentiment();
+
+/**
+ * Fast local sentiment analysis using the 'sentiment' npm package (AFINN lexicon).
+ * Returns instantly with no API calls.
+ */
+export function analyzeSentimentLocal(text: string): string {
+  const cleanedText = text.trim();
+  if (cleanedText.length === 0) return "Neutral";
+
+  const result = sentimentAnalyzer.analyze(cleanedText);
+  // result.score: positive = positive sentiment, negative = negative, 0 = neutral
+  if (result.score > 0) return "Positive";
+  if (result.score < 0) return "Negative";
+  return "Neutral";
+}
+
 // Simple sentiment analysis using keyword matching as fallback
 export function analyzeSentimentFallback(text: string): string {
   const lowerText = text.toLowerCase();

@@ -109,6 +109,7 @@ const TIME_RANGES = [
 ];
 
 const POSTS_PER_PAGE = 5;
+const SENTIMENT_CHUNK_SIZE = 5;
 
 export default function App() {
   const [contestant, setContestant] = useState<string>("");
@@ -130,6 +131,9 @@ export default function App() {
   const [activeContestant, setActiveContestant] = useState<"first" | "second">(
     "first"
   );
+  const [sentimentMode, setSentimentMode] = useState<"fast" | "accurate">(
+    "accurate"
+  );
 
   // Function to reset the page state (refresh functionality)
   const handleLogoClick = () => {
@@ -142,6 +146,7 @@ export default function App() {
     setSelectedSentiments(["Positive", "Neutral", "Negative"]);
     setTimeRange("month");
     setActiveContestant("first");
+    setSentimentMode("accurate");
     // Keep the current contestants selected but clear results
   };
 
@@ -153,148 +158,143 @@ export default function App() {
     setError(null);
 
     try {
-      // Fetch data for first contestant
+      const hasTwo = contestant2 && contestant2 !== contestant;
+
+      // Fetch Reddit data for both contestants (if applicable)
+      let posts1: Post[] = [];
+      let posts2: Post[] = [];
+
       if (contestant) {
         const params = new URLSearchParams({ contestant });
         if (timeRange) params.set("t", timeRange);
         const redditResponse = await fetch(`/api/reddit?${params.toString()}`);
-        if (!redditResponse.ok) {
-          throw new Error("Failed to fetch posts from Reddit.");
-        }
-        const { posts, cached, cacheAge } = await redditResponse.json();
-
-        console.log(
-          `Reddit API returned ${posts.length} total posts for ${contestant}${
-            cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
-          }`
-        );
-
-        if (!posts || posts.length === 0) {
+        if (!redditResponse.ok) throw new Error("Failed to fetch posts from Reddit.");
+        const data = await redditResponse.json();
+        posts1 = data.posts ?? [];
+        if (posts1.length === 0) {
           setError(`No posts found for ${contestant}.`);
           setLoading(false);
           return;
         }
-
-        // Process posts for sentiment analysis (batch)
-        const texts = posts.map((post: Post) =>
-          [post.title, post.text]
-            .filter((part) => part && part.trim().length > 0)
-            .join(". ")
-        );
-        const sentimentResponse = await fetch("/api/sentiment/batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texts }),
-        });
-        if (!sentimentResponse.ok) {
-          const errorData = await sentimentResponse.json();
-          throw new Error(
-            `Sentiment API error: ${JSON.stringify(errorData)}`
-          );
-        }
-        const { sentiments } = await sentimentResponse.json();
-        const postsWithSentiment = posts.map((post: Post, i: number) => ({
-          ...post,
-          sentiment: sentiments[i] ?? "Neutral",
-        }));
-
-        // Save to database
-        const saveResponse = await fetch("/api/database", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contestant,
-            season: "Season 7",
-            posts: postsWithSentiment,
-          }),
-        });
-
-        if (!saveResponse.ok) {
-          const errorData = await saveResponse.json();
-          throw new Error(`Database API error: ${JSON.stringify(errorData)}`);
-        }
-
-        setResults({
-          contestant,
-          season: "Season 7",
-          date: new Date().toISOString(),
-          posts: postsWithSentiment,
-        });
       }
 
-      // Fetch data for second contestant if selected
-      if (contestant2 && contestant2 !== contestant) {
+      if (hasTwo) {
         const params = new URLSearchParams({ contestant: contestant2 });
         if (timeRange) params.set("t", timeRange);
         const redditResponse = await fetch(`/api/reddit?${params.toString()}`);
-        if (!redditResponse.ok) {
-          throw new Error(
-            "Failed to fetch posts from Reddit for second contestant."
-          );
-        }
-        const { posts, cached, cacheAge } = await redditResponse.json();
-
-        console.log(
-          `Reddit API returned ${posts.length} total posts for ${contestant2}${
-            cached ? ` (from cache, age: ${Math.round(cacheAge / 1000)}s)` : ""
-          }`
-        );
-
-        if (!posts || posts.length === 0) {
+        if (!redditResponse.ok) throw new Error("Failed to fetch posts from Reddit for second contestant.");
+        const data = await redditResponse.json();
+        posts2 = data.posts ?? [];
+        if (posts2.length === 0) {
           setError(`No posts found for ${contestant2}.`);
           setLoading(false);
           return;
         }
+      }
 
-        // Process posts for sentiment analysis (batch)
-        const texts2 = posts.map((post: Post) =>
-          [post.title, post.text]
-            .filter((part) => part && part.trim().length > 0)
-            .join(". ")
+      const texts1 = posts1.map((post: Post) =>
+        [post.title, post.text].filter((p) => p?.trim()).join(". ")
+      );
+      const texts2 = posts2.map((post: Post) =>
+        [post.title, post.text].filter((p) => p?.trim()).join(". ")
+      );
+
+      if (hasTwo) {
+        // Two contestants: take turns processing chunks of 5
+        const allPosts1: (Post & { sentiment: string })[] = [];
+        const allPosts2: (Post & { sentiment: string })[] = [];
+        const maxChunks = Math.max(
+          Math.ceil(posts1.length / SENTIMENT_CHUNK_SIZE),
+          Math.ceil(posts2.length / SENTIMENT_CHUNK_SIZE)
         );
-        const sentimentResponse2 = await fetch("/api/sentiment/batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texts: texts2 }),
-        });
-        if (!sentimentResponse2.ok) {
-          const errorData = await sentimentResponse2.json();
-          throw new Error(
-            `Sentiment API error: ${JSON.stringify(errorData)}`
-          );
-        }
-        const { sentiments: sentiments2 } = await sentimentResponse2.json();
-        const postsWithSentiment = posts.map((post: Post, i: number) => ({
-          ...post,
-          sentiment: sentiments2[i] ?? "Neutral",
-        }));
 
-        // Save to database
+        for (let i = 0; i < maxChunks; i++) {
+          // Contestant 1's chunk (if any)
+          if (i * SENTIMENT_CHUNK_SIZE < posts1.length) {
+            const chunkPosts = posts1.slice(i * SENTIMENT_CHUNK_SIZE, (i + 1) * SENTIMENT_CHUNK_SIZE);
+            const chunkTexts = texts1.slice(i * SENTIMENT_CHUNK_SIZE, (i + 1) * SENTIMENT_CHUNK_SIZE);
+            const res = await fetch("/api/sentiment/batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ texts: chunkTexts, method: sentimentMode }),
+            });
+            if (!res.ok) throw new Error(`Sentiment API error: ${JSON.stringify(await res.json())}`);
+            const { sentiments } = await res.json();
+            const chunkWithSentiment = chunkPosts.map((post: Post, j: number) => ({
+              ...post,
+              sentiment: sentiments[j] ?? "Neutral",
+            }));
+            allPosts1.push(...chunkWithSentiment);
+            setResults({ contestant: contestant!, season: "Season 7", date: new Date().toISOString(), posts: [...allPosts1] });
+          }
+
+          // Contestant 2's chunk (if any)
+          if (i * SENTIMENT_CHUNK_SIZE < posts2.length) {
+            const chunkPosts = posts2.slice(i * SENTIMENT_CHUNK_SIZE, (i + 1) * SENTIMENT_CHUNK_SIZE);
+            const chunkTexts = texts2.slice(i * SENTIMENT_CHUNK_SIZE, (i + 1) * SENTIMENT_CHUNK_SIZE);
+            const res = await fetch("/api/sentiment/batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ texts: chunkTexts, method: sentimentMode }),
+            });
+            if (!res.ok) throw new Error(`Sentiment API error: ${JSON.stringify(await res.json())}`);
+            const { sentiments } = await res.json();
+            const chunkWithSentiment = chunkPosts.map((post: Post, j: number) => ({
+              ...post,
+              sentiment: sentiments[j] ?? "Neutral",
+            }));
+            allPosts2.push(...chunkWithSentiment);
+            setResults2({ contestant: contestant2!, season: "Season 7", date: new Date().toISOString(), posts: [...allPosts2] });
+          }
+        }
+
+        // Save both to database
+        const [save1, save2] = await Promise.all([
+          fetch("/api/database", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contestant, season: "Season 7", posts: allPosts1 }),
+          }),
+          fetch("/api/database", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contestant: contestant2, season: "Season 7", posts: allPosts2 }),
+          }),
+        ]);
+        if (!save1.ok) throw new Error(`Database API error: ${JSON.stringify(await save1.json())}`);
+        if (!save2.ok) throw new Error(`Database API error: ${JSON.stringify(await save2.json())}`);
+      } else {
+        // Single contestant: process chunks sequentially
+        const allPosts: (Post & { sentiment: string })[] = [];
+
+        for (let i = 0; i < posts1.length; i += SENTIMENT_CHUNK_SIZE) {
+          const chunkPosts = posts1.slice(i, i + SENTIMENT_CHUNK_SIZE);
+          const chunkTexts = texts1.slice(i, i + SENTIMENT_CHUNK_SIZE);
+          const res = await fetch("/api/sentiment/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ texts: chunkTexts, method: sentimentMode }),
+          });
+          if (!res.ok) throw new Error(`Sentiment API error: ${JSON.stringify(await res.json())}`);
+          const { sentiments } = await res.json();
+          const chunkWithSentiment = chunkPosts.map((post: Post, j: number) => ({
+            ...post,
+            sentiment: sentiments[j] ?? "Neutral",
+          }));
+          allPosts.push(...chunkWithSentiment);
+          setResults({ contestant: contestant!, season: "Season 7", date: new Date().toISOString(), posts: [...allPosts] });
+        }
+
         const saveResponse = await fetch("/api/database", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contestant: contestant2,
-            season: "Season 7",
-            posts: postsWithSentiment,
-          }),
+          body: JSON.stringify({ contestant, season: "Season 7", posts: allPosts }),
         });
-
-        if (!saveResponse.ok) {
-          const errorData = await saveResponse.json();
-          throw new Error(`Database API error: ${JSON.stringify(errorData)}`);
-        }
-
-        setResults2({
-          contestant: contestant2,
-          season: "Season 7",
-          date: new Date().toISOString(),
-          posts: postsWithSentiment,
-        });
+        if (!saveResponse.ok) throw new Error(`Database API error: ${JSON.stringify(await saveResponse.json())}`);
       }
     } catch (err: any) {
       console.error("Error during data processing:", err);
-      setError(err.message || "An unknown error occurred.");
+      setError(err.message || "Unknown error occurred.");
     } finally {
       setLoading(false);
     }
@@ -454,6 +454,42 @@ export default function App() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* Sentiment Mode Toggle */}
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Analysis Mode
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSentimentMode("fast")}
+                      className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md border-2 transition-all duration-200 ${
+                        sentimentMode === "fast"
+                          ? "bg-green-500 text-white border-green-500"
+                          : "bg-white text-gray-700 border-gray-400 hover:border-green-400"
+                      }`}
+                    >
+                      ⚡ Fast (Local)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSentimentMode("accurate")}
+                      className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md border-2 transition-all duration-200 ${
+                        sentimentMode === "accurate"
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-gray-700 border-gray-400 hover:border-blue-400"
+                      }`}
+                    >
+                      🎯 Accurate (AI)
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {sentimentMode === "fast"
+                      ? "Instant results using local lexicon analysis"
+                      : "Uses Hugging Face AI model (slower but more accurate)"}
+                  </p>
                 </div>
 
                 {/* Contestant Selection Grid */}

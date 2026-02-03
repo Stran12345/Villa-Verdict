@@ -1,20 +1,10 @@
 // src/app/api/sentiment/batch/route.ts
 
 import { NextResponse } from "next/server";
-import { analyzeSentiment } from "@/lib/sentiment";
+import { analyzeSentiment, analyzeSentimentLocal } from "@/lib/sentiment";
 
 export async function POST(req: Request) {
-  if (!process.env.HUGGING_FACE_API_KEY) {
-    return NextResponse.json(
-      {
-        error:
-          "Hugging Face API key not configured. Please add HUGGING_FACE_API_KEY to your .env.local file. Get your free API key from https://huggingface.co/settings/tokens",
-      },
-      { status: 500 }
-    );
-  }
-
-  let body: { texts?: unknown };
+  let body: { texts?: unknown; method?: string };
   try {
     body = await req.json();
   } catch {
@@ -24,7 +14,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const { texts } = body;
+  const { texts, method = "accurate" } = body;
+
+  // Only require API key for accurate (Hugging Face) mode
+  if (method === "accurate" && !process.env.HUGGING_FACE_API_KEY) {
+    return NextResponse.json(
+      {
+        error:
+          "Hugging Face API key not configured. Please add HUGGING_FACE_API_KEY to your .env.local file. Get your free API key from https://huggingface.co/settings/tokens",
+      },
+      { status: 500 }
+    );
+  }
 
   if (!Array.isArray(texts)) {
     return NextResponse.json(
@@ -37,9 +38,17 @@ export async function POST(req: Request) {
     typeof t === "string" ? t.trim() : ""
   );
 
-  const sentiments = await Promise.all(
-    validatedTexts.map((text) => analyzeSentiment(text || " "))
-  );
+  let sentiments: string[];
+
+  if (method === "fast") {
+    // Fast mode: use local sentiment analysis (instant)
+    sentiments = validatedTexts.map((text) => analyzeSentimentLocal(text || " "));
+  } else {
+    // Accurate mode: use Hugging Face API
+    sentiments = await Promise.all(
+      validatedTexts.map((text) => analyzeSentiment(text || " "))
+    );
+  }
 
   return NextResponse.json({ sentiments });
 }
